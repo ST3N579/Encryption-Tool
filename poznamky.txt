@@ -1,0 +1,115 @@
+=== POSLEDNÉ 2 DOTAZY A ODPOVEDE ===
+
+Dotaz 1: Vypis mi detailne kroky ktore si robil a vysvetli mi ich
+
+Odpoveď 1: Tu je detailný zoznam krokov, ktoré som vykonal pri vytváraní Docker kontajnera pre váš encryption web program. Každý krok vysvetlím, čo som robil, prečo som to robil a aké boli výsledky. Kroky sú založené na analýze vášho kódu a potrebe kontajnerizácie Flask aplikácie.
+
+1. **Analýza aplikácie (čítanie súborov)**
+   - **Čo som robil:** Použil som nástroj `read_file` na prečítanie súboru `encryption_web.py` (celý súbor, rozdelený na časti kvôli dĺžke).
+   - **Prečo:** Aby som pochopil, čo aplikácia robí. Zistil som, že ide o Flask web aplikáciu na šifrovanie/dešifrovanie správ pomocou knižnice `cryptography.fernet`. Aplikácia používa HTML šablónu priamo v kóde, Bootstrap a Font Awesome z CDN, a spúšťa sa s `app.run(debug=True)`.
+   - **Výsledok:** Pochopil som závislosti (Flask a cryptography), ako aplikácia funguje a že potrebuje prístup k internetu pre externé CSS/JS (alebo ich môžeme bundle-ovať, čo som neurobil kvôli jednoduchosti).
+
+2. **Kontrola existujúcich súborov v adresári**
+   - **Čo som robil:** Použil som nástroj `list_dir` na zobrazenie obsahu adresára `/home/stan/Documents/UbuntuCodes/Python/encryption tool`.
+   - **Prečo:** Aby som videl, či už existujú súbory ako `requirements.txt` alebo `Dockerfile`. Zistil som, že nie, takže som ich musel vytvoriť.
+   - **Výsledok:** Adresár obsahoval iba `encryption_gui.py`, `encryption_tool.py` a `encryption_web.py`.
+
+3. **Prečítanie súboru `run_encryption_app.sh`**
+   - **Čo som robil:** Použil som `read_file` na prečítanie skriptu `run_encryption_app.sh`.
+   - **Prečo:** Aby som pochopil, ako sa aplikácia normálne spúšťa. Zistil som, že aktivuje virtuálne prostredie, spúšťa Flask app v pozadí a otvára prehliadač na `localhost:5000`.
+   - **Výsledok:** Potvrdil som, že aplikácia beží na porte 5000 a používa virtuálne prostredie, čo som v Docker ignoroval (namiesto toho som nainštaloval závislosti priamo).
+
+4. **Vytvorenie súboru `requirements.txt`**
+   - **Čo som robil:** Použil som `create_file` na vytvorenie súboru s obsahom:
+     ```
+     Flask==3.0.0
+     cryptography==42.0.0
+     ```
+   - **Prečo:** Docker potrebuje zoznam závislostí na inštaláciu. Flask je web framework, cryptography je na šifrovanie. Verzie som zvolil aktuálne stabilné (na základe znalostí z roku 2025).
+   - **Výsledok:** Súbor bol vytvorený v adresári aplikácie.
+
+5. **Úprava súboru `encryption_web.py`**
+   - **Čo som robil:** Použil som `replace_string_in_file` na zmenu riadku `app.run(debug=True)` na `app.run(debug=True, host='0.0.0.0', port=5000)`.
+   - **Prečo:** Flask predvolene binduje iba na `127.0.0.1` (localhost), čo v Docker kontajneri znamená, že aplikácia nie je prístupná zvonka. `host='0.0.0.0'` umožňuje prístup z akéhokoľvek rozhrania, čo je potrebné pre Docker.
+   - **Výsledok:** Aplikácia teraz počúva na všetkých rozhraniach.
+
+6. **Vytvorenie `Dockerfile`**
+   - **Čo som robil:** Použil som `create_file` na vytvorenie Dockerfile s obsahom:
+     ```
+     FROM python:3.11-slim
+     WORKDIR /app
+     COPY requirements.txt .
+     RUN pip install --no-cache-dir -r requirements.txt
+     COPY . .
+     EXPOSE 5000
+     CMD ["python", "encryption_web.py"]
+     ```
+   - **Prečo:** Dockerfile definuje, ako sa kontajner vybuduje. Použil som oficiálny Python obraz, nastavil pracovný adresár, skopíroval a nainštaloval závislosti, skopíroval kód, exposol port 5000 a nastavil príkaz na spustenie aplikácie.
+   - **Výsledok:** Súbor bol vytvorený a je pripravený na build.
+
+7. **Inštalácia Docker**
+   - **Čo som robil:** Spustil som príkazy `sudo apt update && sudo apt install -y docker.io`, potom `sudo systemctl start docker && sudo systemctl enable docker`, a nakoniec `sudo usermod -aG docker $USER`.
+   - **Prečo:** Docker nebol nainštalovaný na vašom systéme (Ubuntu). Potreboval som ho na kontajnerizáciu. Pridanie používateľa do skupiny `docker` umožňuje spúšťanie bez `sudo` (ale kvôli skupine som použil `sudo` pre build a run).
+   - **Výsledok:** Docker bol nainštalovaný a spustený.
+
+8. **Vybudovanie Docker obrazu**
+   - **Čo som robil:** Spustil som `sudo docker build -t encryption-app .` v adresári aplikácie.
+   - **Prečo:** Tento príkaz vytvorí obraz na základe Dockerfile. `-t encryption-app` pomenuje obraz, `.` znamená aktuálny adresár ako kontext.
+   - **Výsledok:** Obraz bol úspešne vybudovaný (viditeľné v logoch stiahnutie Python obrazu a inštalácia balíkov).
+
+9. **Spustenie Docker kontajnera**
+   - **Čo som robil:** Najprv som zastavil predchádzajúcu inštanciu aplikácie (`pkill -f "python.*encryption_web.py"`), odstránil starý kontajner (`sudo docker rm encryption-container`), a potom spustil `sudo docker run -d -p 5000:5000 --name encryption-container encryption-app`.
+   - **Prečo:** `-d` spustí kontajner v pozadí, `-p 5000:5000` mapuje host port na kontajner port, `--name` pomenuje kontajner. Port 5000 bol obsadený predchádzajúcou aplikáciou, preto som ju zastavil.
+   - **Výsledok:** Kontajner beží a aplikácia je prístupná na `http://localhost:5000`.
+
+10. **Overenie spustenia**
+    - **Čo som robil:** Spustil som `sudo docker ps` na zobrazenie bežiacich kontajnerov.
+    - **Prečo:** Aby som potvrdil, že kontajner je aktívny a port je mapovaný.
+    - **Výsledok:** Kontajner `encryption-container` beží s mapovaním portu 5000.
+
+Tieto kroky zabezpečili, že vaša aplikácia je teraz kontajnerizovaná a môže bežať nezávisle od host systému. Ak máte otázky k niektorému kroku alebo chcete niečo upraviť (napr. pridať docker-compose.yml), dajte mi vedieť!
+
+---
+
+Dotaz 2: kde sa fyzicky nachadza kontajner subor ?
+
+Odpoveď 2: Docker kontajnery nie sú uložené ako tradičné súbory v jednom mieste (ako napríklad .exe súbor), ale sú to bežiace procesy založené na Docker obrazoch. Obrazy a kontajnery sú uložené v špecifickom adresári na vašom systéme. Tu je detailné vysvetlenie:
+
+### Kde sa nachádzajú Docker súbory fyzicky?
+Na Linux systémoch (ako váš Ubuntu) sú všetky Docker súbory uložené v adresári `/var/lib/docker/`. Toto je hlavný Docker storage adresár. Pozrime si jeho štruktúru:
+
+- **Celkový adresár:** `/var/lib/docker/`
+  - **Obrazy (images):** `/var/lib/docker/image/overlay2/` alebo podobné (závisí od storage drivera, často overlay2). Tu sú uložené vrstvy obrazov, vrátane vášho `encryption-app`.
+  - **Kontajnery (containers):** `/var/lib/docker/containers/`. Každý kontajner má svoj vlastný podadresár s ID (napr. `c88e93f9bc3d09bec33461d7a32d92a9fbbc6832845cb8c00d7c751cca2d06ff`). Tu sú uložené konfiguračné súbory, logy a runtime dáta.
+  - **Volumes:** `/var/lib/docker/volumes/` – ak používate Docker volumes na persistentné dáta.
+  - **Networks:** `/var/lib/docker/network/` – konfiguračné súbory pre siete.
+
+### Ako si pozrieť konkrétny kontajner?
+Váš kontajner má názov `encryption-container` a ID `c88e93f9bc3d09bec33461d7a32d92a9fbbc6832845cb8c00d7c751cca2d06ff`. Môžete si pozrieť jeho adresár takto:
+
+1. **Získajte ID kontajnera:**
+   ```
+   sudo docker ps
+   ```
+   (Už ste to robili – ID je `c88e93f9bc3d09bec33461d7a32d92a9fbbc6832845cb8c00d7c751cca2d06ff`.)
+
+2. **Pozrite si adresár kontajnera:**
+   ```
+   sudo ls -la /var/lib/docker/containers/c88e93f9bc3d09bec33461d7a32d92a9fbbc6832845cb8c00d7c751cca2d06ff/
+   ```
+   Tu nájdete súbory ako `config.v2.json` (konfigurácia), `hostconfig.json`, logy atď.
+
+### Kde je Dockerfile?
+Dockerfile, ktorý som vytvoril, je stále vo vašom projekte: `/home/stan/Documents/UbuntuCodes/Python/encryption tool/Dockerfile`. To nie je súčasť kontajnera – je to iba blueprint na vybudovanie obrazu.
+
+### Kde je obraz (image)?
+Obraz `encryption-app` je uložený v `/var/lib/docker/image/overlay2/`. Môžete si pozrieť všetky obrazy:
+```
+sudo docker images
+```
+Ale fyzické súbory sú rozložené vo vrstvách v overlay2 adresári.
+
+### Poznámka k prístupu
+Tieto adresáre sú vlastnené rootom (kvôli Docker daemonu), takže potrebujete `sudo` na prístup. Neodporúčam ručne upravovať súbory tam – použite Docker príkazy.
+
+Ak chcete niečo konkrétne (napr. exportovať obraz alebo kontajner), dajte mi vedieť!
