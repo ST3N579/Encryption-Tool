@@ -113,3 +113,4 @@ Ale fyzické súbory sú rozložené vo vrstvách v overlay2 adresári.
 Tieto adresáre sú vlastnené rootom (kvôli Docker daemonu), takže potrebujete `sudo` na prístup. Neodporúčam ručne upravovať súbory tam – použite Docker príkazy.
 
 Ak chcete niečo konkrétne (napr. exportovať obraz alebo kontajner), dajte mi vedieť!
+
